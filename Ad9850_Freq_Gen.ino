@@ -5,29 +5,33 @@
  * Pictures and pinouts at nr8o.dhlpilotcentral.com
  * 9850 datasheet at http://www.analog.com/static/imported-files/data_sheets/AD9850.pdf
  * Use freely
- *
- * Modified for FR6989 LaunchPad to use LCD screen
- * Uses potentiometer to adjust frequency
- * Adjusts up to 4095 Hz
+ * 
+ * Modified to display on FR6989 LaunchPad LCD
  * Frank Milburn  January 2016
  * Use freely
 */
+#include "energia.h"
+
+#if defined (__MSP430FR6989) 
+  #include "LCD_Launchpad.h"
+  LCD_LAUNCHPAD lcd;
+#endif
  
-#include "LCD_Launchpad.h"
+#define   FREQ   4000       //     <-----  CHANGE THE FREQUENCY HERE
  
-#define   W_CLK     8       // connect to AD9850 module word load clock pin (CLK)
-#define   FQ_UD     9       // connect to AD9850 freq update pin (FQ)
-#define   DATA     10       // connect to AD9850 serial data load pin (DATA)
-#define   RESET    11       // connect to AD9850 reset pin (RST).
-#define   ADJ_FREQ  2       // analog pin tied to pot to adjust frequency
+#define   W_CLK     3       // connect to AD9850 module word load clock pin (CLK)
+#define   FQ_UD     4       // connect to AD9850 freq update pin (FQ)
+#define   DATA      5       // connect to AD9850 serial data load pin (DATA)
+#define   RESET     6       // connect to AD9850 reset pin (RST)
  
 #define pulseHigh(pin) {digitalWrite(pin, HIGH); digitalWrite(pin, LOW); }
- 
-LCD_LAUNCHPAD lcd;          // remove if not using FR6989
 
 void setup() {
   Serial.begin(115200);
-  lcd.init();               // remove if not using FR6989
+  
+  #if defined (__MSP430FR6989)
+    lcd.init();
+  #endif    
   
   pinMode(FQ_UD, OUTPUT);
   pinMode(W_CLK, OUTPUT);
@@ -42,12 +46,27 @@ void setup() {
 }
  
 void loop() {
-  int freq = analogRead(ADJ_FREQ);
+  double freq = FREQ;
+  
   Serial.println(freq);
-  lcd.clear();              // remove if not using FR6989
-  lcd.println(freq);        // remove if not using FR6989
-  delay(200);
-  sendFrequency(freq);           
+  sendFrequency(freq); 
+    
+  
+  #if defined (__MSP430FR6989)        // allows display on the LCD if using a FR6989 LaunchPad
+    int single_freq = (int) freq;     
+    lcd.clear();              
+    if (freq >= 10000000) {
+      single_freq = int (freq / 1000000);   // Displays MHz if 1,000,000 Hz or above
+    }
+    else if (freq >= 10000) {
+      single_freq = (int) (freq / 1000);    // Displays KHz between 10,000 Hz and 1,000,000 Hz
+    }
+    else {                                  // Displays Hz if below 10,000
+      single_freq = (int) freq;
+    }
+    lcd.println(single_freq);        
+  #endif
+  while (1){};  
 }
  
  // transfers a byte, a bit at a time, LSB first to the 9850 via serial DATA line
@@ -68,4 +87,3 @@ void sendFrequency(double frequency) {
   tfr_byte(0x000);   // Final control byte, all 0 for 9850 chip
   pulseHigh(FQ_UD);  // Done!  Should see output
 }
- 
